@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import rospy
 from geometry_msgs.msg import Twist
-from pynput.keyboard import Key, KeyCode, Listener
+from pynput.keyboard import KeyCode, Listener
 
 MINICAR_MAX_LIN_VEL = 1
 MINICAR_MAX_ANG_VEL = 2
@@ -17,9 +17,8 @@ class KeyboardTeleop:
 
         self.key_state_vel = 0
         self.key_state_ang = 0
-        self.speed_mul = 1
-        self.target_linear_vel   = 0.0
-        self.target_angular_vel  = 0.0
+        self.target_linear_vel = 0.0
+        self.target_angular_vel = 0.0
         self.keyboard_listener = None
         
     def run(self):
@@ -36,8 +35,8 @@ class KeyboardTeleop:
         self.keyboard_listener.join()    
 
     def update_key_state(self):
-        self.target_linear_vel = # --- Enter equation for linear speed ---
-        self.target_angular_vel = # --- Enter equation for angular speed ---
+        self.target_linear_vel = MINICAR_MAX_LIN_VEL * self.key_state_vel
+        self.target_angular_vel = MINICAR_MAX_ANG_VEL * self.key_state_ang
         twist = Twist()
         twist.linear.x = self.target_linear_vel; twist.linear.y = 0.0; twist.linear.z = 0.0
         twist.angular.x = 0.0; twist.angular.y = 0.0; twist.angular.z = self.target_angular_vel
@@ -46,18 +45,32 @@ class KeyboardTeleop:
     def on_key_press(self, key):
         if key == KeyCode.from_char('w'):
             self.key_state_vel = 1
-		
-		# --- enter key code here ---
-		
+            
+        if key == KeyCode.from_char('s'):
+            self.key_state_vel = -1
+
+        if key == KeyCode.from_char('a'):
+            self.key_state_ang = 1
+
+        if key == KeyCode.from_char('d'):
+            self.key_state_ang = -1
+
         self.update_key_state()
         return True
 
     def on_key_release(self, key):
         if key == KeyCode.from_char('w') and self.key_state_vel != 0:
             self.key_state_vel = 0
-			
-		# --- enter key code here ---
-		
+            
+        if key == KeyCode.from_char('s') and self.key_state_vel != 0:
+            self.key_state_vel = 0
+
+        if key == KeyCode.from_char('a') and self.key_state_ang != 0:
+            self.key_state_ang = 0
+
+        if key == KeyCode.from_char('d') and self.key_state_ang != 0:
+            self.key_state_ang = 0
+
         self.update_key_state()
         return True
 

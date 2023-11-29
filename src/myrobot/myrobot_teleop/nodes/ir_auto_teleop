@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+import rospy
+from geometry_msgs.msg import Twist
+from sensor_msgs.msg import Range
+
+MINICAR_MAX_LIN_VEL = 1
+MINICAR_MAX_ANG_VEL = 2
+IR_CENTER_TARGET_RANGE = 0.34
+IR_SIDE_TARGET_RANGE = 0.34
+CLOSE_DIST_TARGET = 50
+
+LEFT_IR_SENSOR = 'ir_sensor_front_0'
+CENTER_IR_SENSOR = 'ir_sensor_front_1'
+RIGHT_IR_SENSOR = 'ir_sensor_front_2'
+
+LEFT_IR_TOPIC = '/myrobot/sensor/front_0'
+CENTER_IR_TOPIC = '/myrobot/sensor/front_1'
+RIGHT_IR_TOPIC = '/myrobot/sensor/front_2'
+
+class IrAutoTeleop:    
+    def __init__(self):
+        rospy.init_node('ir_auto_teleop')
+
+        cmd_vel_topic = rospy.get_param('/ir_auto_teleop/cmd_vel', '/cmd_vel')
+        rospy.loginfo('Cmd Vel topic: ' + cmd_vel_topic)
+
+        self.pub = rospy.Publisher(cmd_vel_topic, Twist, queue_size=10)
+
+        self.range_left = 0
+        self.range_center = 0
+        self.range_rigth = 0
+
+        self.sub_left = rospy.Subscriber(LEFT_IR_TOPIC, Range, callback=self.callback)
+        self.sub_center = rospy.Subscriber(CENTER_IR_TOPIC, Range, callback=self.callback)
+        self.sub_right = rospy.Subscriber(RIGHT_IR_TOPIC, Range, callback=self.callback)
+
+        self.state_vel = 0
+        self.state_ang = 0
+        self.target_linear_vel = 0.0
+        self.target_angular_vel = 0.0
+
+    def run(self):
+        rate = rospy.Rate(10)
+        close_side_dist_counter = 0
+        close_center_dist_counter = 0
+        reverse_flag = False
+        try:
+            while not rospy.is_shutdown():
+                self.update_state()
+                rate.sleep()
+                print self.range_left, self.range_center, self.range_rigth
+                if self.range_left < IR_SIDE_TARGET_RANGE or self.range_rigth < IR_SIDE_TARGET_RANGE:
+                    close_side_dist_counter += 1
+                    if self.range_left < self.range_rigth:
+                        self.state_ang = -1
+                    else:
+                        self.state_ang = 1
+                else:
+                    self.state_ang = 0
+                    close_side_dist_counter = 0
+                
+                if self.range_center < IR_CENTER_TARGET_RANGE:
+                    self.state_vel = 0
+                    close_center_dist_counter += 1
+                else:
+                    self.state_vel = 1
+                    close_center_dist_counter = 0
+                
+                if close_side_dist_counter >= CLOSE_DIST_TARGET or close_center_dist_counter >= CLOSE_DIST_TARGET:
+                    reverse_flag = True
+                else:
+                    reverse_flag = False
+
+                if reverse_flag:
+                    self.state_vel = -1
+                    if self.state_ang != 0:
+                        self.state_ang = 1
+                    else:
+                        self.state_ang = -self.state_ang
+        except rospy.ROSInterruptException:
+            pass  
+
+    def update_state(self):
+        self.target_linear_vel = MINICAR_MAX_LIN_VEL * self.state_vel
+        self.target_angular_vel = MINICAR_MAX_ANG_VEL * self.state_ang
+        twist = Twist()
+        twist.linear.x = self.target_linear_vel; twist.linear.y = 0.0; twist.linear.z = 0.0
+        twist.angular.x = 0.0; twist.angular.y = 0.0; twist.angular.z = self.target_angular_vel
+        self.pub.publish(twist)
+
+    def callback(self, msg):
+        if msg.header.frame_id == LEFT_IR_SENSOR:
+            self.range_left = msg.range
+        elif msg.header.frame_id == CENTER_IR_SENSOR:
+            self.range_center = msg.range
+        elif msg.header.frame_id == RIGHT_IR_SENSOR:
+            self.range_rigth = msg.range
+
+if __name__=="__main__":
+    teleop = IrAutoTeleop()
+    teleop.run()
