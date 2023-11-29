@@ -1,0 +1,110 @@
+<?xml version="1.0"?>
+<robot name="myrobot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!-- ============ Enter xacro properties here (if you want) =============== -->
+
+  <xacro:property name="start_x" value="0.0"/>
+  <xacro:property name="start_y" value="0.0"/>
+  <xacro:property name="start_z" value="0.03"/>
+
+  <xacro:property name="body_name" value="body_name"/>
+  <xacro:property name="body_sx" value="0.21"/>
+  <xacro:property name="body_sy" value="0.16"/>
+  <xacro:property name="body_sz" value="0.05"/>
+  <xacro:property name="body_mass" value="5"/>
+
+  <xacro:property name="wheel_radius" value="0.03"/>
+  <xacro:property name="wheel_width" value="0.02"/>
+  <xacro:property name="wheel_spacer" value="0.005"/>
+  <xacro:property name="wheelbase_x" value="0"/>
+  <xacro:property name="wheelbase_y" value="${body_sy / 2 + wheel_width / 2 + wheel_spacer}"/>
+  <xacro:property name="wheelbase_z" value="${-body_sz / 4}"/>
+  <xacro:property name="wheel_mass" value="1"/>
+
+  <xacro:property name="lidar_rad" value="0.001"/>
+  <xacro:property name="lidar_width" value="0.001"/>
+  <xacro:property name="lidar_x" value="0"/>
+  <xacro:property name="lidar_y" value="0"/>
+  <xacro:property name="lidar_z" value="${body_sz / 2}"/>
+  <xacro:property name="lidar_pos_z" value="${start_z + 0.001}"/>
+
+  <xacro:property name="ir_sx" value="0.003"/>
+  <xacro:property name="ir_sy" value="0.008"/>
+  <xacro:property name="ir_sz" value="0.008"/>
+  <xacro:property name="ir_x" value="${body_sx / 2}"/>
+  <xacro:property name="ir_y" value="${body_sy / 2}"/>
+  <xacro:property name="ir_z" value="${-body_sz / 2}"/>
+
+  <!-- ============ Including macros and materials =============== -->
+  
+  <xacro:include filename="$(find myrobot_description)/urdf/macro.xacro"/>
+  <xacro:include filename="$(find myrobot_description)/urdf/materials.xacro"/>
+
+  <!-- ============ Some magic. Do not touch =============== -->
+  
+  <link name="rs_t265_pose_frame">
+  </link>
+
+  <joint name="rs_t265_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <parent link="rs_t265_pose_frame"/>
+    <child link="base_link"/>
+  </joint>
+
+  <!-- ============ Enter base_link code here =============== -->
+
+  <link name="base_link">
+    <xacro:make_box sx="${body_sx}" sy="${body_sy}" sz="${body_sz}" mass="${body_mass}" xyz="${start_x} ${start_y} ${start_z}"/>
+  </link>
+
+  <!-- ============ Enter wheels code here =============== -->
+
+  <xacro:wheel wheel_prefix="left" parent_link="base_link" left_right="-1" radius="${wheel_radius}" width="${wheel_width}" wheel_mass="${wheel_mass}">
+    <origin xyz="${start_x + wheelbase_x} ${start_y + wheelbase_y} ${start_z + wheelbase_z}"/>
+  </xacro:wheel>
+
+  <xacro:wheel wheel_prefix="right" parent_link="base_link" left_right="1" radius="${wheel_radius}" width="${wheel_width}" wheel_mass="${wheel_mass}">
+    <origin xyz="${start_x + wheelbase_x} ${start_y - wheelbase_y} ${start_z + wheelbase_z}"/>
+  </xacro:wheel>
+
+  <!-- ============ Enter sensors code here =============== -->
+  <!-- ============ LIDAR =============== -->
+  <link name="rplidar_a2_frame">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 ${lidar_pos_z}"/>
+      <geometry>
+        <mesh filename="package://myrobot_description/meshes/rplidar.dae" scale="${lidar_rad} ${lidar_rad} ${lidar_width}"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 ${lidar_pos_z}"/>
+      <geometry>
+        <cylinder length="${lidar_width}" radius="${lidar_rad}"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="rplidar_a2_joint" type="fixed">
+    <axis xyz="0 1 0"/>
+    <origin rpy="0 0 ${PI}" xyz="${lidar_x} ${lidar_y} ${lidar_z + 0.003}"/>
+    <parent link="base_link"/>
+    <child link="rplidar_a2_frame"/>
+  </joint>
+
+  <!-- ============ IR sensors =============== -->
+
+  <xacro:ir_sensor name="front_0" parent="base_link" sx="${ir_sx}" sy="${ir_sy}" sz="${ir_sz}">
+    <origin rpy="0 0 ${45 * PI / 180}"
+     xyz="${start_x + ir_x} ${start_y + ir_y} ${start_z + ir_z}"/>
+  </xacro:ir_sensor>
+
+  <xacro:ir_sensor name="front_1" parent="base_link" sx="${ir_sx}" sy="${ir_sy}" sz="${ir_sz}">
+    <origin rpy="0 0 0"
+     xyz="${start_x + ir_x} ${start_y} ${start_z + ir_z}"/>
+  </xacro:ir_sensor>
+  
+  <xacro:ir_sensor name="front_2" parent="base_link" sx="${ir_sx}" sy="${ir_sy}" sz="${ir_sz}">
+    <origin rpy="0 0 ${-45 * PI / 180}"
+     xyz="${start_x + ir_x} ${start_y - ir_y} ${start_z + ir_z}"/>
+  </xacro:ir_sensor>
+
+</robot>
