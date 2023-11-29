@@ -17,7 +17,7 @@
   <xacro:property name="wheel_spacer" value="0.005"/>
   <xacro:property name="wheelbase_x" value="0"/>
   <xacro:property name="wheelbase_y" value="${body_sy / 2 + wheel_width / 2 + wheel_spacer}"/>
-  <xacro:property name="wheelbase_z" value="${-body_sz / 4}"/>
+  <xacro:property name="wheelbase_z" value="${body_sz / 10 - 0.0001}"/>
   <xacro:property name="wheel_mass" value="1"/>
 
   <xacro:property name="lidar_rad" value="0.001"/>
@@ -32,7 +32,7 @@
   <xacro:property name="ir_sz" value="0.008"/>
   <xacro:property name="ir_x" value="${body_sx / 2}"/>
   <xacro:property name="ir_y" value="${body_sy / 2}"/>
-  <xacro:property name="ir_z" value="${-body_sz / 2}"/>
+  <xacro:property name="ir_z" value="${body_sz / 2}"/>
 
   <!-- ============ Including macros and materials =============== -->
   
