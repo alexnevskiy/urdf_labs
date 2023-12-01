@@ -5,6 +5,10 @@ from pynput.keyboard import KeyCode, Listener
 
 MINICAR_MAX_LIN_VEL = 1
 MINICAR_MAX_ANG_VEL = 2
+MAX_LIN_VEL_MULTIPLIER = 1
+MIN_LIN_VEL_MULTIPLIER = -1
+DEFAULT_LIN_VEL_MULTIPLIER = 0
+VEL_STEP = 0.05
 
 class KeyboardTeleop:    
     def __init__(self):
@@ -19,6 +23,10 @@ class KeyboardTeleop:
         self.key_state_ang = 0
         self.target_linear_vel = 0.0
         self.target_angular_vel = 0.0
+        self.forward = False
+        self.back = False
+        self.left = False
+        self.right = False
         self.keyboard_listener = None
         
     def run(self):
@@ -35,6 +43,8 @@ class KeyboardTeleop:
         self.keyboard_listener.join()    
 
     def update_key_state(self):
+        self.update_speed()
+        print(self.key_state_vel)
         self.target_linear_vel = MINICAR_MAX_LIN_VEL * self.key_state_vel
         self.target_angular_vel = MINICAR_MAX_ANG_VEL * self.key_state_ang
         twist = Twist()
@@ -44,35 +54,54 @@ class KeyboardTeleop:
 
     def on_key_press(self, key):
         if key == KeyCode.from_char('w'):
-            self.key_state_vel = 1
+            self.forward = True
             
         if key == KeyCode.from_char('s'):
-            self.key_state_vel = -1
+            self.back = True
 
         if key == KeyCode.from_char('a'):
-            self.key_state_ang = 1
+            self.left = True
 
         if key == KeyCode.from_char('d'):
-            self.key_state_ang = -1
-
-        self.update_key_state()
+            self.right = True
         return True
 
     def on_key_release(self, key):
-        if key == KeyCode.from_char('w') and self.key_state_vel != 0:
-            self.key_state_vel = 0
+        if key == KeyCode.from_char('w'):
+            self.forward = False
             
-        if key == KeyCode.from_char('s') and self.key_state_vel != 0:
-            self.key_state_vel = 0
+        if key == KeyCode.from_char('s'):
+            self.back = False
 
-        if key == KeyCode.from_char('a') and self.key_state_ang != 0:
-            self.key_state_ang = 0
+        if key == KeyCode.from_char('a'):
+            self.left = False
 
-        if key == KeyCode.from_char('d') and self.key_state_ang != 0:
-            self.key_state_ang = 0
-
-        self.update_key_state()
+        if key == KeyCode.from_char('d'):
+            self.right = False
         return True
+
+    def update_speed(self):
+        if self.forward and self.back:
+            self.key_state_vel = 0
+        elif self.forward:
+            self.key_state_vel = max(self.key_state_vel, DEFAULT_LIN_VEL_MULTIPLIER)
+            self.key_state_vel += VEL_STEP
+            self.key_state_vel = min(self.key_state_vel, MAX_LIN_VEL_MULTIPLIER)
+        elif self.back:
+            self.key_state_vel = min(self.key_state_vel, DEFAULT_LIN_VEL_MULTIPLIER)
+            self.key_state_vel -= VEL_STEP
+            self.key_state_vel = max(self.key_state_vel, MIN_LIN_VEL_MULTIPLIER)
+        else:
+            self.key_state_vel = 0
+        
+        if self.left and self.right:
+            self.key_state_ang = 0
+        elif self.left:
+            self.key_state_ang = 1
+        elif self.right:
+            self.key_state_ang = -1
+        else:
+            self.key_state_ang = 0
 
 if __name__=="__main__":
     teleop = KeyboardTeleop()
