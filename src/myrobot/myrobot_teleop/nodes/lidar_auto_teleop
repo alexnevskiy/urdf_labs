@@ -29,7 +29,7 @@ FRONT_RANGE_RIGHT_BORDER = 135
 RIGHT_RANGE_LEFT_BORDER = 135
 RIGHT_RANGE_RIGHT_BORDER = 45
 BACK_RANGE_LEFT_BORDER = 45
-BACK_RANGE_RIGHT_BORDER = 315
+BACK_RANGE_RIGHT_BORDER = -45
 
 LIDAR_TOPIC = '/myrobot/rplidar/scan'
 
@@ -85,14 +85,14 @@ class LidarAutoTeleop:
                 self.front_ranges = np.flipud(self.ranges[FRONT_RANGE_RIGHT_BORDER:FRONT_RANGE_LEFT_BORDER])
                 self.left_ranges = np.flipud(self.ranges[LEFT_RANGE_RIGHT_BORDER:LEFT_RANGE_LEFT_BORDER])
                 self.right_ranges = np.flipud(self.ranges[RIGHT_RANGE_RIGHT_BORDER:RIGHT_RANGE_LEFT_BORDER])
-                self.back_ranges = np.flipud(self.ranges[BACK_RANGE_RIGHT_BORDER:BACK_RANGE_LEFT_BORDER])
+                self.back_ranges = np.flipud(np.concatenate((self.ranges[BACK_RANGE_RIGHT_BORDER:], self.ranges[0:BACK_RANGE_LEFT_BORDER])))
 
                 if not ignore_ready_flag:
                     if len(np.argwhere(self.left_ranges[37:52] > READY_TO_TURN_RANGE)) >= READY_TO_TURN_COUNT:
                         left_ready_flag = True
                     else:
                         left_ready_flag = False
-                    if len(np.argwhere(self.right_ranges[35:52] > READY_TO_TURN_RANGE)) >= READY_TO_TURN_COUNT:
+                    if len(np.argwhere(self.right_ranges[37:52] > READY_TO_TURN_RANGE)) >= READY_TO_TURN_COUNT:
                         right_ready_flag = True
                     else:
                         right_ready_flag = False
