@@ -1,0 +1,210 @@
+#!/usr/bin/env python
+import rospy
+from geometry_msgs.msg import Twist
+from sensor_msgs.msg import LaserScan
+import random
+import numpy as np
+
+MINICAR_MAX_LIN_VEL = 1
+MINICAR_MAX_ANG_VEL = 2
+MAX_LIN_VEL_MULTIPLIER = 1
+MIN_LIN_VEL_MULTIPLIER = -1
+DEFAULT_LIN_VEL_MULTIPLIER = 0
+VEL_STEP = 0.05
+
+LIDAR_CENTER_TARGET_RANGE = 0.75
+LIDAR_SIDE_TARGET_RANGE = 1.25
+
+READY_TO_TURN_RANGE = 10
+READY_TO_TURN_COUNT = 15
+COUNT_TO_TURN = 10
+
+CLOSE_DIST_TARGET = 50
+IGNORE_READY_TARGET = 50
+
+LEFT_RANGE_LEFT_BORDER = 315
+LEFT_RANGE_RIGHT_BORDER = 225
+FRONT_RANGE_LEFT_BORDER = 225
+FRONT_RANGE_RIGHT_BORDER = 135
+RIGHT_RANGE_LEFT_BORDER = 135
+RIGHT_RANGE_RIGHT_BORDER = 45
+BACK_RANGE_LEFT_BORDER = 45
+BACK_RANGE_RIGHT_BORDER = 315
+
+LIDAR_TOPIC = '/myrobot/rplidar/scan'
+
+class LidarAutoTeleop:    
+    def __init__(self):
+        rospy.init_node('lidar_auto_teleop')
+
+        cmd_vel_topic = rospy.get_param('/lidar_auto_teleop/cmd_vel', '/cmd_vel')
+        rospy.loginfo('Cmd Vel topic: ' + cmd_vel_topic)
+
+        self.pub = rospy.Publisher(cmd_vel_topic, Twist, queue_size=10)
+
+        self.ranges = np.zeros(360)
+        self.front_ranges = np.zeros(90)
+        self.left_ranges = np.zeros(90)
+        self.right_ranges = np.zeros(90)
+        self.back_ranges = np.zeros(90)
+
+        self.sub = rospy.Subscriber(LIDAR_TOPIC, LaserScan, callback=self.callback)
+
+        self.state_vel = 0
+        self.state_ang = 0
+        self.target_linear_vel = 0.0
+        self.target_angular_vel = 0.0
+        self.forward = False
+        self.back = False
+        self.left = False
+        self.right = False
+
+    def run(self):
+        rate = rospy.Rate(10)
+        close_side_dist_counter = 0
+        close_center_dist_counter = 0
+        turn_counter = 0
+        ignore_ready_counter = 0
+        left_ready_flag = False
+        right_ready_flag = False
+        turn_left_flag = False
+        turn_right_flag = False
+        ignore_ready_flag = False
+        reverse_flag = False
+        try:
+            while not rospy.is_shutdown():
+                self.update_state()
+                rate.sleep()
+                # logs
+                print('===============================================')
+                print('front %06.3f | left %06.3f | right %06.3f | back %06.3f' % (self.ranges[180], self.ranges[270], self.ranges[90], self.ranges[0]))
+                print('ready_left ' + str(left_ready_flag) + ' | ready_right ' + str(right_ready_flag))
+                print('ignore ' + str(ignore_ready_flag) + ' | turn_left ' + str(turn_left_flag) + ' | turn_right ' + str(turn_right_flag))
+                print('center_counter ' + str(close_center_dist_counter) + ' | side_counter ' + str(close_side_dist_counter))
+                print('===============================================')
+                self.front_ranges = np.flipud(self.ranges[FRONT_RANGE_RIGHT_BORDER:FRONT_RANGE_LEFT_BORDER])
+                self.left_ranges = np.flipud(self.ranges[LEFT_RANGE_RIGHT_BORDER:LEFT_RANGE_LEFT_BORDER])
+                self.right_ranges = np.flipud(self.ranges[RIGHT_RANGE_RIGHT_BORDER:RIGHT_RANGE_LEFT_BORDER])
+                self.back_ranges = np.flipud(self.ranges[BACK_RANGE_RIGHT_BORDER:BACK_RANGE_LEFT_BORDER])
+
+                if not ignore_ready_flag:
+                    if len(np.argwhere(self.left_ranges[37:52] > READY_TO_TURN_RANGE)) >= READY_TO_TURN_COUNT:
+                        left_ready_flag = True
+                    else:
+                        left_ready_flag = False
+                    if len(np.argwhere(self.right_ranges[35:52] > READY_TO_TURN_RANGE)) >= READY_TO_TURN_COUNT:
+                        right_ready_flag = True
+                    else:
+                        right_ready_flag = False
+                    
+                    if left_ready_flag or right_ready_flag:
+                        ignore_ready_flag = True
+                        turn = random.choice([True, False])
+                        if turn or not self.forward:
+                            if left_ready_flag and right_ready_flag:
+                                turn_left_flag = random.choice([True, False])
+                                turn_right_flag = not turn_left_flag
+                            elif left_ready_flag:
+                                turn_left_flag = True
+                            else:
+                                turn_right_flag = True
+                    
+                if (turn_left_flag or turn_right_flag) and not reverse_flag:
+                    turn_counter += 1
+                    if turn_counter >= COUNT_TO_TURN:
+                        turn_left_flag = False
+                        turn_right_flag = False
+                        turn_counter = 0
+                    if turn_left_flag:
+                        self.forward = False
+                        self.left = True
+                        self.right = False
+                    if turn_right_flag:
+                        self.forward = False
+                        self.left = False
+                        self.right = True
+                else:
+                    if ignore_ready_flag and ignore_ready_counter < IGNORE_READY_TARGET:
+                        ignore_ready_counter += 1
+                    else:
+                        ignore_ready_counter = 0
+                        ignore_ready_flag = False
+
+                    min_range_left = np.min(self.front_ranges[0:30])
+                    min_range_center = np.min(self.front_ranges[30:60])
+                    min_range_right = np.min(self.front_ranges[60:90])
+                    if min_range_left < LIDAR_SIDE_TARGET_RANGE or min_range_right < LIDAR_SIDE_TARGET_RANGE:
+                        close_side_dist_counter += 1
+                        if min_range_left < min_range_right:
+                            self.right = True
+                        else:
+                            self.left = True
+                    else:
+                        self.left = False
+                        self.right = False
+                        close_side_dist_counter = 0
+                    
+                    if min_range_center < LIDAR_CENTER_TARGET_RANGE:
+                        close_center_dist_counter += 1
+                        self.forward = False
+                    else:
+                        self.forward = True
+                        close_center_dist_counter = 0
+                    
+                    if close_side_dist_counter >= CLOSE_DIST_TARGET or close_center_dist_counter >= CLOSE_DIST_TARGET:
+                        reverse_flag = True
+                    else:
+                        reverse_flag = False
+
+                    if reverse_flag:
+                        self.forward = False
+                        self.back = True
+                        if not self.left and not self.right:
+                            self.left = random.choice([True, False])
+                            self.right = not self.left
+                        else:
+                            self.left = not self.left
+                            self.right = not self.right
+                    else:
+                        self.back = False
+        except rospy.ROSInterruptException:
+            pass  
+
+    def update_state(self):
+        self.update_speed()
+        self.target_linear_vel = MINICAR_MAX_LIN_VEL * self.state_vel
+        self.target_angular_vel = MINICAR_MAX_ANG_VEL * self.state_ang
+        twist = Twist()
+        twist.linear.x = self.target_linear_vel; twist.linear.y = 0.0; twist.linear.z = 0.0
+        twist.angular.x = 0.0; twist.angular.y = 0.0; twist.angular.z = self.target_angular_vel
+        self.pub.publish(twist)
+
+    def update_speed(self):
+        if self.forward and self.back:
+            self.state_vel = 0
+        elif self.forward:
+            self.state_vel = max(self.state_vel, DEFAULT_LIN_VEL_MULTIPLIER)
+            self.state_vel += VEL_STEP
+            self.state_vel = min(self.state_vel, MAX_LIN_VEL_MULTIPLIER)
+        elif self.back:
+            self.state_vel = min(self.state_vel, DEFAULT_LIN_VEL_MULTIPLIER)
+            self.state_vel -= VEL_STEP
+            self.state_vel = max(self.state_vel, MIN_LIN_VEL_MULTIPLIER)
+        else:
+            self.state_vel = 0
+        
+        if self.left and self.right:
+            self.state_ang = 0
+        elif self.left:
+            self.state_ang = 1
+        elif self.right:
+            self.state_ang = -1
+        else:
+            self.state_ang = 0
+
+    def callback(self, msg):
+        self.ranges = np.array(msg.ranges)
+
+if __name__=="__main__":
+    teleop = LidarAutoTeleop()
+    teleop.run()

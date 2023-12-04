@@ -42,3 +42,23 @@ roslaunch myrobot_teleop teleop_keyboard.launch
 source ./devel/setup.sh
 roslaunch myrobot_teleop ir_auto_teleop.launch
 ```
+
+## lab4
+
+```shell
+# Консоль 1 - контроллер 
+source ./devel/setup.sh
+roslaunch myrobot_control control.launch  
+
+# Консоль 2 - симулятор 
+source ./devel/setup.sh
+roslaunch myrobot_simulator gazebo_testwalls.launch  
+
+# Консоль 3 - rviz 
+source ./devel/setup.sh
+roslaunch myrobot_description rviz.launch  
+
+# Консоль 4 - узел управления роботом в автоматическом режиме (лидар)
+source ./devel/setup.sh
+roslaunch myrobot_teleop lidar_auto_teleop.launch
+```
