@@ -77,7 +77,7 @@ class LidarAutoTeleop:
                 rate.sleep()
                 # logs
                 print('===============================================')
-                print('front %06.3f | left %06.3f | right %06.3f | back %06.3f' % (self.ranges[180], self.ranges[270], self.ranges[90], self.ranges[0]))
+                print('front %06.3f | left %06.3f | right %06.3f | back %06.3f' % (self.ranges[179], self.ranges[269], self.ranges[89], self.ranges[0]))
                 print('ready_left ' + str(left_ready_flag) + ' | ready_right ' + str(right_ready_flag))
                 print('ignore ' + str(ignore_ready_flag) + ' | turn_left ' + str(turn_left_flag) + ' | turn_right ' + str(turn_right_flag))
                 print('center_counter ' + str(close_center_dist_counter) + ' | side_counter ' + str(close_side_dist_counter))
